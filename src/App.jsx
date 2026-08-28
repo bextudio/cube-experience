@@ -5,12 +5,12 @@ import {
   FiArrowUp,
   FiChevronLeft,
   FiChevronRight,
+  FiChevronsDown,
   FiCheckCircle,
   FiClock,
   FiBookOpen,
   FiFileText,
   FiExternalLink,
-  FiLoader,
   FiMonitor,
   FiPause,
   FiPlay,
@@ -296,6 +296,8 @@ export function App() {
     && (renderedTransition?.reverseSrc || steps[renderedTransition.targetIndex]?.reverse),
   );
   const canExitFirstMonitor = stepIndex === 2 && autoMonitorPhase === "playing";
+  const isJourneyStarting = stepIndex === 0 && direction === "idle" && !movementNotice;
+  const entranceSecondsRemaining = Math.max(0, Math.ceil(ENTRANCE_UNLOCK_TIME * (1 - queueProgress)));
 
   const getVideo = useCallback((slot) => slot === "a" ? videoARef.current : videoBRef.current, []);
 
@@ -1030,7 +1032,7 @@ export function App() {
 
       <ol className="chapter-rail" aria-label="مسیر تجربه">
         {steps.map((item, index) => (
-          <li key={item.id} className={index === stepIndex ? "is-current" : index < stepIndex ? "is-passed" : ""}>
+          <li key={item.id} className={index === stepIndex ? "is-current" : index < stepIndex ? "is-passed" : ""} aria-current={index === stepIndex ? "step" : undefined}>
             <span className="rail-number">{item.number}</span>
             <span className="rail-dot" aria-hidden="true" />
             <span className="rail-label">{item.label}</span>
@@ -1040,19 +1042,31 @@ export function App() {
 
       <div className="chapter-navigation" aria-label="حرکت در تجربه">
         <button
+          className="navigation-secondary"
           type="button"
           disabled={!(canExitFirstMonitor || canReverseActiveMotion || (stepIndex > 0 && !isTransitioning))}
           onClick={() => navigate("reverse")}
           aria-label={canReverseActiveMotion ? "معکوس‌کردن حرکت از همین لحظه" : "حرکت به فصل قبل"}
+          aria-keyshortcuts="ArrowUp PageUp"
         >
           <FiArrowUp aria-hidden="true" /><span>حرکت معکوس</span>
         </button>
+
+        <div className={`interaction-hint${isJourneyStarting ? " is-starting" : ""}`}>
+          <span className="gesture-icon" aria-hidden="true"><FiChevronsDown /></span>
+          <span className="interaction-copy">
+            <strong>{loading ? "در حال آماده‌سازی" : movementNotice === "queued" ? "حرکت بعدی ثبت شد" : isJourneyStarting ? "برای شروع، اسکرول کنید" : isEntranceTransition && !entranceForwardUnlocked ? `ادامه تا ${entranceSecondsRemaining} ثانیه‌ی دیگر` : canExitFirstMonitor ? "برای ادامه، اسکرول کنید" : "حرکت در تجربه"}</strong>
+            <small>{movementNotice === "queued" ? "نیازی به اسکرول دوباره نیست" : isJourneyStarting ? "اسکرول، سوایپ یا کلید ↓" : isEntranceTransition ? entranceForwardUnlocked ? "پایین: ادامه · بالا: حرکت معکوس" : "بازگشت از همین حالا فعال است" : stepIndex === steps.length - 1 ? "پایین: بازگشت به آغاز · بالا: برگشت" : "پایین: ادامه · بالا: بازگشت"}</small>
+          </span>
+        </div>
+
         <button
           className={`continue-cue${isEntranceTransition && entranceForwardUnlocked ? " is-unlocked" : ""}`}
           type="button"
           disabled={isEntranceTransition ? !entranceForwardUnlocked : (isTransitioning && !canExitFirstMonitor)}
           onClick={() => navigate("forward")}
           aria-label={stepIndex === steps.length - 1 ? "بازگشت به آغاز تجربه" : isEntranceTransition ? entranceForwardUnlocked ? "ادامه با ظاهرشدن چراغ آبی فعال است" : "ادامه با ظاهرشدن چراغ آبی فعال می‌شود" : "حرکت به فصل بعد"}
+          aria-keyshortcuts="ArrowDown PageDown"
         >
           <span>{stepIndex === steps.length - 1 ? "بازگشت به آغاز" : "ادامه‌ی تجربه"}</span>
           {stepIndex === steps.length - 1 ? <FiRotateCcw aria-hidden="true" /> : <FiArrowDown aria-hidden="true" />}
@@ -1060,16 +1074,14 @@ export function App() {
       </div>
 
       <div className="experience-controls" aria-label="تنظیمات تجربه">
-        <button type="button" aria-label={muted ? "فعال‌کردن صدا" : "قطع صدا"} title={muted ? "فعال‌کردن صدا" : "قطع صدا"} onClick={() => setMuted((value) => !value)}>
+        <button type="button" aria-label={muted ? "فعال‌کردن صدا" : "قطع صدا"} onClick={() => setMuted((value) => !value)}>
           {muted ? <FiVolumeX aria-hidden="true" /> : <FiVolume2 aria-hidden="true" />}
+          <span className="control-tooltip" aria-hidden="true">{muted ? "فعال‌کردن صدا" : "قطع صدا"}</span>
         </button>
-        <button type="button" aria-label={paused ? "ادامه‌ی حرکت" : "توقف حرکت"} title={paused ? "ادامه‌ی حرکت" : "توقف حرکت"} onClick={() => setPaused((value) => !value)}>
+        <button type="button" aria-label={paused ? "ادامه‌ی حرکت" : "توقف حرکت"} onClick={() => setPaused((value) => !value)}>
           {paused ? <FiPlay aria-hidden="true" /> : <FiPause aria-hidden="true" />}
+          <span className="control-tooltip" aria-hidden="true">{paused ? "ادامه‌ی حرکت" : "توقف حرکت"}</span>
         </button>
-      </div>
-
-      <div className="interaction-hint" aria-hidden="true">
-        {loading ? <><FiLoader className="loading-icon" /><span>آماده‌سازی حرکت معکوس</span></> : <><FiArrowDown /><span>{isEntranceTransition ? entranceForwardUnlocked ? "ادامه فعال شد · اسکرول پایین: جلو · اسکرول بالا: معکوس" : "اسکرول بالا: معکوس · ادامه با روشن‌شدن چراغ آبی فعال می‌شود" : canExitFirstMonitor ? "اسکرول برای خاموش‌کردن مانیتور و ادامهٔ مسیر" : stepIndex === steps.length - 1 ? "اسکرول پایین: بازگشت به آغاز" : "اسکرول پایین: ادامه · اسکرول بالا: بازگشت"}</span></>}
       </div>
 
       {movementNotice ? (
