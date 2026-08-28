@@ -188,38 +188,59 @@ function CatalogReader({ catalog, muted, onClose }) {
 
   useEffect(() => {
     if (!hasPages || !bookRef.current) return undefined;
-    const pageFlip = new PageFlip(bookRef.current, {
-      width: 1280,
-      height: 720,
-      size: "stretch",
-      minWidth: 280,
-      maxWidth: 1280,
-      minHeight: 158,
-      maxHeight: 720,
-      showCover: false,
-      usePortrait: false,
-      autoSize: true,
-      drawShadow: true,
-      maxShadowOpacity: 0.24,
-      flippingTime: 880,
-      showPageCorners: true,
-      disableFlipByClick: true,
-      useMouseEvents: true,
-      swipeDistance: 18,
-      mobileScrollSupport: false,
+    let disposed = false;
+    let frameId = null;
+    let pageFlip = null;
+    const bookElement = bookRef.current;
+    const initialImages = Array.from(bookElement.querySelectorAll("img")).slice(0, 4);
+    const waitForImage = (image) => image.complete
+      ? Promise.resolve()
+      : new Promise((resolve) => {
+        image.addEventListener("load", resolve, { once: true });
+        image.addEventListener("error", resolve, { once: true });
+      });
+
+    Promise.all(initialImages.map(waitForImage)).then(() => {
+      if (disposed || !bookElement.isConnected) return;
+      frameId = requestAnimationFrame(() => {
+        if (disposed || !bookElement.isConnected) return;
+        pageFlip = new PageFlip(bookElement, {
+          width: 1280,
+          height: 720,
+          size: "stretch",
+          minWidth: 280,
+          maxWidth: 1280,
+          minHeight: 158,
+          maxHeight: 720,
+          showCover: false,
+          usePortrait: false,
+          autoSize: true,
+          drawShadow: true,
+          maxShadowOpacity: 0.3,
+          flippingTime: 920,
+          showPageCorners: true,
+          disableFlipByClick: false,
+          useMouseEvents: true,
+          swipeDistance: 18,
+          mobileScrollSupport: false,
+        });
+        pageFlip.loadFromHTML(bookElement.querySelectorAll(".page-flip-page"));
+        pageFlip.on("flip", (event) => {
+          setPageIndex(event.data);
+          if (mutedRef.current || !soundRef.current) return;
+          soundRef.current.currentTime = 0;
+          soundRef.current.volume = 0.025;
+          soundRef.current.play().catch(() => undefined);
+        });
+        pageFlipRef.current = pageFlip;
+      });
     });
-    pageFlip.loadFromHTML(bookRef.current.querySelectorAll(".page-flip-page"));
-    pageFlip.on("flip", (event) => {
-      setPageIndex(event.data);
-      if (mutedRef.current || !soundRef.current) return;
-      soundRef.current.currentTime = 0;
-      soundRef.current.volume = 0.025;
-      soundRef.current.play().catch(() => undefined);
-    });
-    pageFlipRef.current = pageFlip;
+
     return () => {
-      pageFlipRef.current = null;
-      pageFlip.destroy();
+      disposed = true;
+      if (frameId !== null) cancelAnimationFrame(frameId);
+      if (pageFlipRef.current === pageFlip) pageFlipRef.current = null;
+      pageFlip?.destroy();
     };
   }, [catalog.id, hasPages]);
 
@@ -248,7 +269,7 @@ function CatalogReader({ catalog, muted, onClose }) {
             <div ref={bookRef} className="page-flip-book" aria-label={`صفحات ${visibleStart} و ${visibleEnd}؛ گوشهٔ صفحه را بگیرید و بکشید`}>
               {Array.from({ length: catalog.pageCount }, (_, index) => (
                 <div className="page-flip-page" data-density="soft" key={index + 1}>
-                  <img src={`${catalog.pagesBase}/${index + 1}.jpg`} alt={`صفحه ${index + 1}`} loading={index < 4 ? "eager" : "lazy"} decoding="async" draggable="false" />
+                  <img src={`${catalog.pagesBase}/${index + 1}.jpg`} alt={`صفحه ${index + 1}`} loading={index < 6 ? "eager" : "lazy"} decoding="async" draggable="false" />
                 </div>
               ))}
             </div>
