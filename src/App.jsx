@@ -38,7 +38,7 @@ const steps = [
     number: "۰۲",
     label: "ورود",
     title: "از سطح عبور کنید",
-    description: "حرکت بعدی، شما را از بیرون مکعب به جهان درون آن می‌برد.",
+    description: "با حرکت بعدی، از بیرون مکعب وارد جهان درون آن می‌شوید.",
     idle: "/assets/motions/03-city-loop.mp4",
     idleHandoff: "cut",
     forward: "/assets/motions/04-city-to-monitor-forward.mp4",
@@ -48,7 +48,7 @@ const steps = [
     id: "intelligence",
     number: "۰۳",
     label: "روایت هوشمند",
-    title: "روایت، شکل تازه‌ای می‌گیرد",
+    title: "روایت شکل تازه‌ای می‌گیرد",
     description: "هر حرکت، فصل بعدی تجربه را آشکار می‌کند.",
     idle: null,
     forward: "/assets/motions/06-monitor-two-to-three-forward.mp4",
@@ -68,8 +68,8 @@ const steps = [
     id: "phygital",
     number: "۰۵",
     label: "تجربه‌ی فیجیتال",
-    title: "واقعیت و دیجیتال به هم می‌رسند",
-    description: "تعامل، مرز میان دو جهان را از میان برمی‌دارد.",
+    title: "جهان فیزیکی و دیجیتال به هم می‌رسند",
+    description: "تعامل، مرز میان این دو جهان را از میان برمی‌دارد.",
     idle: null,
     forward: "/assets/motions/08-social-to-outro-forward.mp4",
     reverse: "/assets/motions/07-monitor-three-to-social-reverse.mp4",
@@ -79,7 +79,7 @@ const steps = [
     number: "۰۶",
     label: "ادامه‌ی تجربه",
     title: "این پایان مسیر نیست",
-    description: "جهان بکستودیو را در وب‌سایت و اپلیکیشن ادامه دهید.",
+    description: "این تجربه را در وب‌سایت و اپلیکیشن بکستودیو ادامه دهید.",
     idle: null,
     forward: null,
     reverse: "/assets/motions/08-social-to-outro-reverse.mp4",
@@ -106,14 +106,25 @@ const monitorChapters = {
   4: {
     eyebrow: "تجربه‌ی فیجیتال",
     title: "مرز فیزیکی و دیجیتال محو می‌شود",
-    description: "نمونه‌ی کامل تجربه‌ی فیجیتال، درون مانیتور تعاملی اجرا می‌شود.",
+    description: "نمونه‌ی کامل تجربه‌ی فیجیتال را در مانیتور تعاملی ببینید.",
     type: "motion",
     items: [{ id: "phygital", label: "Phygital", src: "/assets/monitors/phygital.mp4" }],
   },
 };
 
-function waitForPlayable(video) {
-  if (video.readyState >= 3) return Promise.resolve();
+function hasPlayableBuffer(video, minimumBuffer = 0.8) {
+  if (video.readyState < 3) return false;
+  if (!Number.isFinite(video.duration) || video.duration <= 0) return true;
+  const currentTime = video.currentTime;
+  const targetTime = Math.min(video.duration - 0.04, currentTime + minimumBuffer);
+  for (let index = 0; index < video.buffered.length; index += 1) {
+    if (video.buffered.start(index) <= currentTime + 0.04 && video.buffered.end(index) >= targetTime) return true;
+  }
+  return video.readyState >= 4;
+}
+
+function waitForPlayable(video, minimumBuffer = 0.8) {
+  if (hasPlayableBuffer(video, minimumBuffer)) return Promise.resolve();
   return new Promise((resolve, reject) => {
     const timeoutId = window.setTimeout(() => {
       cleanup();
@@ -121,12 +132,20 @@ function waitForPlayable(video) {
     }, 8000);
     const cleanup = () => {
       window.clearTimeout(timeoutId);
-      video.removeEventListener("canplay", onReady);
+      ["canplay", "canplaythrough", "loadeddata", "progress", "timeupdate"].forEach((eventName) => {
+        video.removeEventListener(eventName, onReady);
+      });
       video.removeEventListener("error", onError);
     };
-    const onReady = () => { cleanup(); resolve(); };
+    const onReady = () => {
+      if (!hasPlayableBuffer(video, minimumBuffer)) return;
+      cleanup();
+      resolve();
+    };
     const onError = () => { cleanup(); reject(new Error("media-error")); };
-    video.addEventListener("canplay", onReady, { once: true });
+    ["canplay", "canplaythrough", "loadeddata", "progress", "timeupdate"].forEach((eventName) => {
+      video.addEventListener(eventName, onReady);
+    });
     video.addEventListener("error", onError, { once: true });
   });
 }
@@ -218,13 +237,13 @@ function CatalogReader({ catalog, muted, onClose }) {
           className="book-stage"
           dir="ltr"
           tabIndex="0"
-          aria-label="ورق‌زدن کتاب از چپ به راست"
+          aria-label="ورق زدن کتاب از چپ به راست"
           onKeyDown={(event) => {
             if (event.key === "ArrowLeft") pageFlipRef.current?.flipPrev();
             if (event.key === "ArrowRight") pageFlipRef.current?.flipNext();
           }}
         >
-          <button className="book-turn previous" type="button" disabled={pageIndex <= 0} onClick={() => pageFlipRef.current?.flipPrev()} aria-label="دو صفحه قبل"><FiChevronLeft aria-hidden="true" /></button>
+          <button className="book-turn previous" type="button" disabled={pageIndex <= 0} onClick={() => pageFlipRef.current?.flipPrev()} aria-label="دو صفحه‌ی قبل"><FiChevronLeft aria-hidden="true" /></button>
           <div className="book-paper-bed">
             <div ref={bookRef} className="page-flip-book" aria-label={`صفحات ${visibleStart} و ${visibleEnd}؛ گوشهٔ صفحه را بگیرید و بکشید`}>
               {Array.from({ length: catalog.pageCount }, (_, index) => (
@@ -235,7 +254,7 @@ function CatalogReader({ catalog, muted, onClose }) {
             </div>
           </div>
           <div className="book-gesture-hint" aria-hidden="true"><span />گوشهٔ صفحه را بگیرید و آرام بکشید</div>
-          <button className="book-turn next" type="button" disabled={pageIndex >= catalog.pageCount - 2} onClick={() => pageFlipRef.current?.flipNext()} aria-label="دو صفحه بعد"><FiChevronRight aria-hidden="true" /></button>
+          <button className="book-turn next" type="button" disabled={pageIndex >= catalog.pageCount - 2} onClick={() => pageFlipRef.current?.flipNext()} aria-label="دو صفحه‌ی بعد"><FiChevronRight aria-hidden="true" /></button>
           <audio ref={soundRef} src="/assets/audio/page-turn.mp3" preload="auto" />
         </div>
       ) : <iframe title={`کاتالوگ ${catalog.title}`} src={`${catalog.url}#view=FitH&toolbar=0&navpanes=0`} />}
@@ -328,10 +347,6 @@ export function App() {
       incomingVideo.load();
     }
     incomingVideo.currentTime = 0;
-
-    if (movement === "forward" && (reverseSrc || steps[targetIndex]?.reverse)) {
-      fetch(reverseSrc || steps[targetIndex].reverse, { cache: "force-cache" }).catch(() => undefined);
-    }
 
     try {
       await waitForPlayable(incomingVideo);
@@ -469,6 +484,7 @@ export function App() {
     try {
       await waitForPlayable(reverseVideo);
       await seekTo(reverseVideo, reverseVideo.duration * (1 - progress));
+      await waitForPlayable(reverseVideo, 0.6);
       await reverseVideo.play();
       await waitForPresentedFrame(reverseVideo);
       if (transitionRef.current !== activeTransition) {
@@ -710,14 +726,19 @@ export function App() {
       setEntranceForwardUnlocked(false);
       return undefined;
     }
-    let frameId;
+    const activeVideo = getVideo(frontSlotRef.current);
+    if (!activeVideo) return undefined;
     const trackUnlock = () => {
-      const activeVideo = getVideo(frontSlotRef.current);
-      setEntranceForwardUnlocked(Boolean(activeVideo && activeVideo.currentTime >= ENTRANCE_UNLOCK_TIME));
-      frameId = requestAnimationFrame(trackUnlock);
+      const unlocked = activeVideo.currentTime >= ENTRANCE_UNLOCK_TIME;
+      setEntranceForwardUnlocked((current) => current === unlocked ? current : unlocked);
     };
-    frameId = requestAnimationFrame(trackUnlock);
-    return () => cancelAnimationFrame(frameId);
+    trackUnlock();
+    activeVideo.addEventListener("timeupdate", trackUnlock);
+    activeVideo.addEventListener("seeked", trackUnlock);
+    return () => {
+      activeVideo.removeEventListener("timeupdate", trackUnlock);
+      activeVideo.removeEventListener("seeked", trackUnlock);
+    };
   }, [frontSlot, getVideo, isEntranceTransition]);
 
   useEffect(() => {
@@ -772,40 +793,19 @@ export function App() {
 
   useEffect(() => {
     if (!["queued", "locked"].includes(movementNotice)) return undefined;
-    let frameId;
     const updateProgress = () => {
       const activeVideo = getVideo(frontSlotRef.current);
       const progressDuration = movementNoticeContext === "unlock" ? ENTRANCE_UNLOCK_TIME : activeVideo?.duration;
-      if (progressDuration) setQueueProgress(Math.min(activeVideo.currentTime / progressDuration, 1));
-      frameId = requestAnimationFrame(updateProgress);
+      if (!progressDuration) return;
+      const nextProgress = Math.min(activeVideo.currentTime / progressDuration, 1);
+      setQueueProgress((current) => Math.abs(current - nextProgress) >= 0.01 ? nextProgress : current);
     };
-    frameId = requestAnimationFrame(updateProgress);
-    return () => cancelAnimationFrame(frameId);
+    updateProgress();
+    const progressTimer = window.setInterval(updateProgress, 250);
+    return () => window.clearInterval(progressTimer);
   }, [getVideo, movementNotice, movementNoticeContext]);
 
   useEffect(() => () => window.clearTimeout(noticeTimerRef.current), []);
-
-  useEffect(() => {
-    const adjacentSources = [
-      stepIndex < steps.length - 1 ? steps[stepIndex].forward : steps[0].idle,
-      stepIndex > 0 ? steps[stepIndex].reverse : null,
-      stepIndex < steps.length - 1 ? steps[stepIndex + 1].reverse : null,
-      steps[stepIndex].idle,
-      stepIndex === 0 ? steps[1].idle : null,
-      stepIndex === 0 ? steps[1].forward : null,
-    ].filter(Boolean);
-    const controller = new AbortController();
-    const warmCache = window.setTimeout(() => {
-      adjacentSources.forEach((src) => {
-        fetch(src, { cache: "force-cache", signal: controller.signal }).catch(() => undefined);
-      });
-    }, 700);
-
-    return () => {
-      window.clearTimeout(warmCache);
-      controller.abort();
-    };
-  }, [stepIndex]);
 
   useEffect(() => {
     setMonitorOpen(false);
@@ -904,7 +904,7 @@ export function App() {
       </div>
 
       {stepIndex === 2 && direction === "idle" && ["powering", "playing", "powering-off", "catalog-powering", "catalog", "catalog-powering-off"].includes(autoMonitorPhase) ? (
-        <section className="spatial-tv-layer" aria-label={autoMonitorPhase.startsWith("catalog") ? "مانیتور کاتالوگ‌های تجربه برند" : "مانیتور BEX"}>
+        <section className="spatial-tv-layer" aria-label={autoMonitorPhase.startsWith("catalog") ? "مانیتور کاتالوگ‌های تجربه‌ی برند" : "مانیتور BEX"}>
           <div className="spatial-tv-canvas">
             <div className={`spatial-tv-screen monitor-power-surface ${autoMonitorPhase === "catalog-powering" ? "is-powering" : autoMonitorPhase === "catalog-powering-off" ? "is-powering-off" : `is-${autoMonitorPhase}`}`}>
               {["powering", "playing", "powering-off"].includes(autoMonitorPhase) ? (
@@ -932,16 +932,16 @@ export function App() {
                       </div>
                       <div className="catalog-grid">
                         {catalogs.map((catalog) => (
-                          <button key={catalog.id} type="button" onClick={() => setSelectedCatalog(catalog)} aria-label={`بازکردن کاتالوگ ${catalog.title}`}>
+                          <button key={catalog.id} type="button" onClick={() => setSelectedCatalog(catalog)} aria-label={`باز کردن کاتالوگ ${catalog.title}`}>
                             <span className="catalog-cover">
                               {catalog.cover ? <img src={catalog.cover} alt="" /> : <FiFileText aria-hidden="true" />}
                             </span>
                             <strong>{catalog.title}</strong>
-                            <small>مشاهده کاتالوگ</small>
+                            <small>مشاهده‌ی کاتالوگ</small>
                           </button>
                         ))}
                       </div>
-                      {catalogs.length === 0 ? <p className="catalog-empty">فایل PDF را در پوشهٔ کاتالوگ‌ها قرار دهید.</p> : null}
+                      {catalogs.length === 0 ? <p className="catalog-empty">هنوز کاتالوگی برای نمایش آماده نشده است.</p> : null}
                     </>
                   )}
                 </div>
@@ -1025,7 +1025,7 @@ export function App() {
         <p>{step.description}</p>
         {monitorChapter ? (
           <button className="monitor-launch" type="button" onClick={() => { setMonitorPaused(false); setMonitorOpen(true); }} disabled={isTransitioning}>
-            <FiMonitor aria-hidden="true" /><span>بازکردن مانیتور این فصل</span>
+            <FiMonitor aria-hidden="true" /><span>مشاهده‌ی محتوای این فصل</span>
           </button>
         ) : null}
       </section>
@@ -1040,23 +1040,23 @@ export function App() {
         ))}
       </ol>
 
-      <div className="chapter-navigation" aria-label="حرکت در تجربه">
+      <div className="chapter-navigation" aria-label="راهنمای حرکت در تجربه">
         <button
           className="navigation-secondary"
           type="button"
           disabled={!(canExitFirstMonitor || canReverseActiveMotion || (stepIndex > 0 && !isTransitioning))}
           onClick={() => navigate("reverse")}
-          aria-label={canReverseActiveMotion ? "معکوس‌کردن حرکت از همین لحظه" : "حرکت به فصل قبل"}
+          aria-label={canReverseActiveMotion ? "برگشت حرکت از همین لحظه" : "حرکت به فصل قبل"}
           aria-keyshortcuts="ArrowUp PageUp"
         >
-          <FiArrowUp aria-hidden="true" /><span>حرکت معکوس</span>
+          <FiArrowUp aria-hidden="true" /><span>بازگشت</span>
         </button>
 
         <div className={`interaction-hint${isJourneyStarting ? " is-starting" : ""}`}>
           <span className="gesture-icon" aria-hidden="true"><FiChevronsDown /></span>
           <span className="interaction-copy">
-            <strong>{loading ? "در حال آماده‌سازی" : movementNotice === "queued" ? "حرکت بعدی ثبت شد" : isJourneyStarting ? "برای شروع، اسکرول کنید" : isEntranceTransition && !entranceForwardUnlocked ? `ادامه تا ${entranceSecondsRemaining} ثانیه‌ی دیگر` : canExitFirstMonitor ? "برای ادامه، اسکرول کنید" : "حرکت در تجربه"}</strong>
-            <small>{movementNotice === "queued" ? "نیازی به اسکرول دوباره نیست" : isJourneyStarting ? "اسکرول، سوایپ یا کلید ↓" : isEntranceTransition ? entranceForwardUnlocked ? "پایین: ادامه · بالا: حرکت معکوس" : "بازگشت از همین حالا فعال است" : stepIndex === steps.length - 1 ? "پایین: بازگشت به آغاز · بالا: برگشت" : "پایین: ادامه · بالا: بازگشت"}</small>
+            <strong>{loading ? "در حال آماده‌سازی" : movementNotice === "queued" ? "ادامه ثبت شد" : isJourneyStarting ? "برای شروع، اسکرول کنید" : isEntranceTransition && !entranceForwardUnlocked ? `ادامه، ${entranceSecondsRemaining} ثانیه‌ی دیگر فعال می‌شود` : canExitFirstMonitor ? "برای ادامه، اسکرول کنید" : "راهنمای حرکت"}</strong>
+            <small>{movementNotice === "queued" ? "نیازی به اسکرول دوباره نیست" : isJourneyStarting ? "اسکرول، سوایپ یا کلید ↓" : isEntranceTransition ? entranceForwardUnlocked ? "پایین: ادامه · بالا: بازگشت" : "بازگشت از همین حالا فعال است" : stepIndex === steps.length - 1 ? "پایین: بازگشت به آغاز · بالا: فصل قبل" : "پایین: ادامه · بالا: بازگشت"}</small>
           </span>
         </div>
 
@@ -1065,18 +1065,18 @@ export function App() {
           type="button"
           disabled={isEntranceTransition ? !entranceForwardUnlocked : (isTransitioning && !canExitFirstMonitor)}
           onClick={() => navigate("forward")}
-          aria-label={stepIndex === steps.length - 1 ? "بازگشت به آغاز تجربه" : isEntranceTransition ? entranceForwardUnlocked ? "ادامه با ظاهرشدن چراغ آبی فعال است" : "ادامه با ظاهرشدن چراغ آبی فعال می‌شود" : "حرکت به فصل بعد"}
+          aria-label={stepIndex === steps.length - 1 ? "بازگشت به آغاز تجربه" : isEntranceTransition ? entranceForwardUnlocked ? "ادامه با ظاهر شدن چراغ آبی فعال است" : "ادامه با ظاهر شدن چراغ آبی فعال می‌شود" : "حرکت به فصل بعد"}
           aria-keyshortcuts="ArrowDown PageDown"
         >
-          <span>{stepIndex === steps.length - 1 ? "بازگشت به آغاز" : "ادامه‌ی تجربه"}</span>
+          <span>{stepIndex === steps.length - 1 ? "بازگشت به آغاز" : "ادامه"}</span>
           {stepIndex === steps.length - 1 ? <FiRotateCcw aria-hidden="true" /> : <FiArrowDown aria-hidden="true" />}
         </button>
       </div>
 
       <div className="experience-controls" aria-label="تنظیمات تجربه">
-        <button type="button" aria-label={muted ? "فعال‌کردن صدا" : "قطع صدا"} onClick={() => setMuted((value) => !value)}>
+        <button type="button" aria-label={muted ? "فعال کردن صدا" : "قطع صدا"} onClick={() => setMuted((value) => !value)}>
           {muted ? <FiVolumeX aria-hidden="true" /> : <FiVolume2 aria-hidden="true" />}
-          <span className="control-tooltip" aria-hidden="true">{muted ? "فعال‌کردن صدا" : "قطع صدا"}</span>
+          <span className="control-tooltip" aria-hidden="true">{muted ? "فعال کردن صدا" : "قطع صدا"}</span>
         </button>
         <button type="button" aria-label={paused ? "ادامه‌ی حرکت" : "توقف حرکت"} onClick={() => setPaused((value) => !value)}>
           {paused ? <FiPlay aria-hidden="true" /> : <FiPause aria-hidden="true" />}
@@ -1090,8 +1090,8 @@ export function App() {
             {movementNotice === "started" ? <FiCheckCircle /> : <FiClock />}
           </span>
           <span className="movement-notice-copy">
-            <strong>{movementNotice === "locked" ? "ادامه کمی بعد فعال می‌شود" : movementNotice === "queued" ? "درخواست حرکت ثبت شد" : movementNoticeContext === "instant-reverse" ? "حرکت معکوس شد" : "حرکت آغاز شد"}</strong>
-            <small>{movementNotice === "locked" ? "بازگشت از همین حالا فعال است؛ ادامه با روشن‌شدن چراغ آبی باز می‌شود" : movementNotice === "queued" && movementNoticeContext === "entrance" ? "این حرکت کامل می‌شود، سپس فصل بعد آغاز خواهد شد" : movementNotice === "queued" ? "با پایان این دور، فصل بعد آغاز می‌شود" : movementNoticeContext === "instant-reverse" ? "ادامهٔ مسیر از همین فریم در جهت عکس اجرا می‌شود" : ["entrance-forward", "city-instant"].includes(movementNoticeContext) ? "حرکت بعدی بدون انتظار آغاز شد" : "در حال ورود به فصل بعد"}</small>
+            <strong>{movementNotice === "locked" ? "ادامه هنوز فعال نیست" : movementNotice === "queued" ? "ادامه ثبت شد" : movementNoticeContext === "instant-reverse" ? "مسیر برگشت" : "حرکت آغاز شد"}</strong>
+            <small>{movementNotice === "locked" ? "بازگشت فعال است؛ ادامه با روشن شدن چراغ آبی فعال می‌شود" : movementNotice === "queued" && movementNoticeContext === "entrance" ? "پس از پایان این حرکت، فصل بعد شروع می‌شود" : movementNotice === "queued" ? "پس از پایان این دور، فصل بعد شروع می‌شود" : movementNoticeContext === "instant-reverse" ? "حرکت از همین فریم در جهت برگشت ادامه دارد" : ["entrance-forward", "city-instant"].includes(movementNoticeContext) ? "حرکت بعدی بدون انتظار شروع شد" : "در حال ورود به فصل بعد"}</small>
           </span>
           {movementNotice !== "started" ? (
             <span className="movement-notice-progress" aria-hidden="true"><i style={{ transform: `scaleX(${queueProgress})` }} /></span>

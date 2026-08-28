@@ -382,7 +382,7 @@ button:disabled { cursor: default; opacity: .38; }
 .chapter-navigation button:hover:not(:disabled) { border-color: rgba(8,145,178,.46); color: var(--cyan-deep); transform: translateY(-1px); }
 .chapter-navigation .continue-cue { border-color: var(--cyan); background: var(--cyan); color: #fff; font-weight: 700; }
 .chapter-navigation .continue-cue.is-unlocked { box-shadow: 0 0 0 5px rgba(8,145,178,.14), 0 12px 28px -14px rgba(8,145,178,.85); animation: continue-ready 920ms var(--ease) both; }
-.chapter-navigation .continue-cue:hover { border-color: var(--cyan-deep); background: var(--cyan-deep); }
+.chapter-navigation .continue-cue:hover:not(:disabled) { border-color: var(--cyan-deep); background: var(--cyan-deep); color: #fff; }
 @keyframes continue-ready { from { transform: translateY(4px); } 55% { transform: translateY(-2px); } to { transform: translateY(0); } }
 
 .experience-controls { position: absolute; z-index: 11; bottom: 28px; left: 30px; display: flex; direction: ltr; gap: 8px; }
@@ -492,6 +492,11 @@ button:disabled { cursor: default; opacity: .38; }
 .is-forward .narrative, .is-reverse .narrative { opacity: 0; transform: translateY(16px); pointer-events: none; }
 .is-forward .edge-header, .is-reverse .edge-header { opacity: .38; transform: translateY(-5px); }
 .is-forward .chapter-rail, .is-reverse .chapter-rail { opacity: .62; }
+.is-forward .chapter-navigation, .is-reverse .chapter-navigation,
+.is-forward .chapter-rail, .is-reverse .chapter-rail,
+.is-forward .movement-notice, .is-reverse .movement-notice {
+  backdrop-filter: none;
+}
 .is-monitor-open > :not(.scene-stage):not(.monitor-overlay):not(.sr-status) { pointer-events: none; }
 
 .monitor-overlay {
