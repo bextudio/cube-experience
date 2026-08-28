@@ -1,0 +1,14 @@
+node_modules/
+dist/
+tmp/
+
+# Local-only environment files
+.env
+.env.*
+!.env.example
+
+# Editor and OS metadata
+.DS_Store
+Thumbs.db
+*.log
+
